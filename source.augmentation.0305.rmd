@@ -1,0 +1,392 @@
+---
+title: "Source Augmentation Script ReadMe"
+author: "Cynthia Yeh"
+date: "April 12 2021"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+options(knitr.table.format = "latex")
+```
+
+Before getting started, the essential files are:
+
+`r text_spec("1. In r folder", color = c("#79BAEC"), bold = T)`
+
+augment.source 03032021_v3.R
+
+source.functions.R
+
+`r text_spec("1. In csv folder", color = c("#79BAEC"), bold = T)`
+
+source_data
+
+data_augmented_xl
+
+
+Please make sure that there are no blanks in source.numbers column and the numbers are matched between Outcomes DB and Source DB. :)
+
+note: The below example is from AMD source DB.
+
+
+## DEFAULTS
+### *Dependencies*
+`r text_spec("Please install dplyr, purrr, tidyverse, lubridate before running the script.", background = "#E799A3", color ="white", bold = T)`
+
+```{r install.pkg, message = FALSE}
+#install.packages("dplyr")
+#install.packages("purrr")
+#install.packages("tidyverse")
+#install.packages("lubridate")
+library(dplyr)
+library(purrr)
+library(tidyverse)
+library(lubridate)
+```
+
+### *Directories*
+<br>Set up directories and make sure it is in the current database r folder
+
+```{r}
+getwd()
+dirSource <- '../csv'
+dirResults <- '../csv'
+sourcedb <- 'source_data.csv'
+augmentdb<-'data_augmented_xl.csv'
+```
+
+## DATA IMPORT
+Import the data from csv folder and cleaning the Outcomes and Source DB.
+
+```{r, include = FALSE}
+OutcomesDB <- read.csv(file = paste(dirSource, augmentdb, sep = "/"), header = TRUE, fill = TRUE,
+                       as.is = TRUE, sep = ",", na.strings = c(".","N/A"))
+# exclude empty rows
+OutcomesDB <- OutcomesDB %>%
+  filter(!source.number == "")
+SourceDB <- read.csv(file = paste(dirSource, sourcedb, sep = "/"), header = TRUE, fill = TRUE,
+                     as.is = TRUE, sep = ",", na.strings = c(".","N/A"), strip.white = TRUE)
+source('source.functions.R')
+```
+
+### *Check the original data dimensions*
+```{r, results = "hold"}
+dim(OutcomesDB)
+dim(SourceDB)
+```
+
+## DATA PREP
+```{r, include = FALSE}
+SourceDB <- SourceDB %>%
+  mutate(across(where(is.character), trimws))
+```
+### *Create SourceDB dataset*
+```{r, include = FALSE}
+### Dataset - raw source DB
+datSource <- SourceDB
+dim(datSource) 
+```
+
+### *Convert date columns to desired format using lubridate package*
+```{r}
+datSource$date.transform <- mdy(datSource$search.date)
+```
+```{r, echo = FALSE}
+dates <- c("search.date", "date.transform")
+for (k in dates) {
+  datSource[,k] <- paste('="', as.character(datSource[,k]), '"', sep = '') 
+}
+
+datSource$search.date <- ifelse(datSource$date.transform == "=\"NA\"", 
+                                as.character(datSource$search.date), 
+                                datSource$date.transform)
+```
+
+### *Remove internal columns*
+
+For example, the last 6 columns for the database are listed below: `r tail(names(datSource))`. Here, `r text_spec("entry", "qc", color = c("#79BAEC"), bold = T)` are internal columns that need to be removed.
+
+`r text_spec("Please change colnames in internalCols to remove internal columns (ignore date.transform column).", background = "#E799A3", color ="white", bold = T)`
+```{r}
+internalCols <- c("entry", "qc")
+```
+
+```{r, include = FALSE}
+datSource <- datSource %>%
+  mutate(across(where(is.character), trimws),
+         across(c(search, include, reason, e.copy, database), tolower)) %>%
+  select(!all_of(internalCols) & !date.transform)
+```
+
+The updated columns are listed here: `r tail(names(datSource))`.
+In most cases, `r text_spec("database", color = c("#79BAEC"), bold = T)` should be the last column in the source DB.
+
+### *Subset Outcomes DB*
+```{r}
+OutcomesDB <- OutcomesDB %>%
+  select(url:publication.type,
+         study,
+         registry.study.id,
+         n.study,
+         arm,
+         control.arm,
+         randomized.drug)
+```
+
+## DATA FORMAT CHECKS
+In this section, we will check if there are any missing columns, unallowed non-numeric columns, and unify the columns format.
+
+Example output as below (table 1):
+```{r}
+checkReqSourceCols(datSource)
+```
+`r text_spec("From the message above, please change the n.patients columns to n.study.", background = "#E799A3", color ="white", bold = T)`
+
+```{r, echo = FALSE}
+datSource <- datSource %>%
+  rename(n.study = n.patients)
+c1 <- names(datSource[1:12])
+c2 <- c(names(datSource[13:23]), " ")
+df<- cbind(c1, c2)
+kable(df, format = "latex", booktabs = TRUE, caption = "Column Names") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+```{r}
+checkNumSourceCols(datSource)
+```
+`r text_spec("Uncomment the following 2 lines in the R-script to correct unallowed non-numerics.", background = "#E799A3", color ="white", bold = T, escape = FALSE)`
+
+```{r}
+#x <- c("source.number", "publication.year")
+#datSource[x] <- sapply(datSource[x], as.numeric)
+```
+
+## NAMED RANGES
+Check if the named ranges are matching (table 2). Please manually change them if there are unallowed names.
+
+```{r, echo = FALSE, warning = FALSE}
+df <- cbind(reasonType, searchType)
+
+df[10:13,2] <- NA
+df[1,1] <- "blanks"
+opts <- options(knitr.kable.NA = "")
+kable(df, format = "latex", booktabs = TRUE, caption = "Named Ranges") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+Example:
+This chunk of codes will list out unallowed named ranges. Run it line by line.
+```{r, results = "hide"}
+unique(datSource$search[!datSource$search %in% searchType])
+unique(datSource$include[!datSource$include %in% yesNoUnclear])
+unique(datSource$reason[!datSource$reason %in% reasonType])
+unique(datSource$e.copy[!datSource$e.copy %in% yesNo])
+unique(datSource$database[!datSource$database %in% yesNo])
+```
+
+## URL HARMONIZATION
+It makes the pubmed/clinical.trial urls consistent.
+
+```{r, include = FALSE}
+# Generate PubMed/clintrials URLs
+datSource$url[datSource$search == "pubmed"] <- paste0("https://www.ncbi.nlm.nih.gov/pubmed/",
+                                                      datSource$source.number[datSource$search == "pubmed"])
+datSource$url[datSource$search == "clinicaltrials.gov"] <- paste0("https://clinicaltrials.gov/ct2/show/",
+                                                                  datSource$registry.study.id[datSource$search == "clinicaltrials.gov"])
+# Remove everything that comes after a comma in the URL
+datSource$url <- sapply(strsplit(datSource$url, ","), "[", 1)
+```
+
+## REFERENCES CHECKS
+Two messages to read in this section.
+
+1st message: Whether there are references marked as database = yes in Source DB, but they are actually not found in Outcomes DB.
+```{r, include = FALSE}
+wDB.sNumber <- unique(OutcomesDB$source.number)
+sDB.database.yes <- unique(datSource$source.number[datSource$database == "yes"])
+sDB.database.no <- unique(datSource$source.number[datSource$database != "yes"])
+
+# Check database = yes in source DB
+wDB.no <- sDB.database.yes[!sDB.database.yes %in% wDB.sNumber]
+```
+
+2nd message: Check if all included references are curated or not.
+```{r}
+checkSourceYes(wDB.no)
+```
+
+```{r, include = FALSE}
+# Check database == no in source DB
+wDB.yes <- sDB.database.no[sDB.database.no %in% wDB.sNumber]
+datSource$database[datSource$source.number %in% wDB.yes] <- "yes"
+
+# Check the rest of database == no (& include == yes) in Source DB
+sDB.include.yes <- datSource %>%
+  filter(include == "yes", database != "yes") %>%
+  select(source.number)
+```
+
+```{r}
+checkSourceNo(sDB.include.yes)
+```
+
+
+## CREATE DATASETS
+This section will reshape the dataset, check if we have `r text_spec("any references that have more than 1 study", color = c("#79BAEC"), bold = T)`, and will also combine the information for multiple studies in single references.
+```{r, include = FALSE}
+### Dataset - unique referenes that contains maximum arm for each study
+datUniRef <- TrimData(OutcomesDB, source.number, study, arm)
+datUniRef$arm <- gsub(".*\\+|[^0-9]", "", datUniRef$arm)
+datUniRef <- datUniRef %>%
+  group_by(source.number, study) %>%
+  slice_max(arm)
+```
+
+Identify the source numbers for multiple studies references
+```{r}
+checkMultiStudy(datUniRef)
+```
+
+```{r, include = FALSE}
+refs.multiple.study <- unique(datUniRef$source.number[duplicated(datUniRef$source.number)])
+
+# Combine multiple studies information
+datUniRef <- datUniRef %>%
+  group_by(source.number) %>%
+  mutate(across(c(study, registry.study.id, n.study, arm),
+                function(x) paste(unique(x[!is.na(x) & x != ""]), collapse = " and "))) %>%
+  filter(!duplicated(source.number))
+
+### Dataset - unique control drugs dataset
+datUniCtrl <- filter(OutcomesDB, !grepl("[A-z]", arm),            # exclude subarms
+                     control.arm == "yes")                   # include control arms only
+datUniCtrl <- TrimData(datUniCtrl, source.number, study, randomized.drug)
+
+datUniCtrl <- datUniCtrl %>%
+  group_by(source.number) %>%
+  filter(!duplicated(randomized.drug)) %>%
+  mutate(control.join = paste(randomized.drug, collapse = ", ")) %>%
+  filter(!duplicated(source.number)) %>%
+  select(source.number, control.join)
+
+### Dataset - unique interventional drugs dataset
+datUniTrt <- filter(OutcomesDB, !grepl("[A-z]", arm),             # exclude subarms
+                    control.arm == "no")                     # include experimental arms only
+datUniTrt <- TrimData(datUniTrt, source.number, study, randomized.drug)
+
+datUniTrt <- datUniTrt %>%
+  group_by(source.number) %>%
+  filter(!duplicated(randomized.drug)) %>%
+  mutate(treatment.join = paste(randomized.drug, collapse = ", ")) %>%
+  filter(!duplicated(source.number)) %>%
+  select(source.number, treatment.join)
+```
+
+After data wrangling, the first dimension of `r text_spec("datUniRef", color =c("#79BAEC"), bold = T)` and `r text_spec("datUniTrt", color =c("#79BAEC"), bold = T)` datasets should be the same.
+```{r}
+dim(datUniRef)
+dim(datUniCtrl)
+dim(datUniTrt)
+```
+
+## FILL IN MISSING INFORMATION
+This part, we will overwrite Source database by gathering information from augmented Outcomes database. After this step, data be lined up between databases.
+```{r, include = FALSE}
+# Merge datUniRef/datUniCtrl/datUniTrt
+cols.join <- c("url",
+               "authors",
+               "publication.year",
+               "title",
+               "journal",
+               "volume",
+               "pages",
+               "study",
+               "registry.study.id",
+               "n.study",
+               "arm")
+
+datUniRef.join <- datUniRef %>%
+  select(source.number, all_of(cols.join)) %>%
+  rename(n.arm = arm) %>%
+  rename_at(vars(-source.number), paste0, ".join") %>%
+  list(datUniCtrl, datUniTrt) %>%
+  reduce(left_join, by = "source.number")
+```
+
+Some databases, oncology database especially, there is no control arm due to single arm study design. Here, we will fill in control column of the Source DB as `r text_spec("no control", color =c("#79BAEC"), bold = T)`.
+```{r}
+datUniRef.join$control.join[is.na(datUniRef.join$control.join)] <- "no control"
+```
+
+```{r, include = FALSE}
+### Check if it's in the augmented database, but not in the source database ###
+miss.in.source <- wDB.sNumber[!wDB.sNumber %in% datSource$source.number]
+
+# Add missing refs' source numbers to datUniRef.join for filling information later  
+for (miss.info in miss.in.source) {
+  datSource <- datSource %>%
+    add_row(source.number = miss.info, database = "yes")
+}
+
+
+### All augmentated DB source.number should be in the source database now, proceed to fill in information ###
+cols.join <- gsub(".join", "", names(datUniRef.join[, names(datUniRef.join) != "source.number"]))
+cols.join
+
+datSource <- datSource %>%
+  left_join(datUniRef.join, by = "source.number")
+
+# Fill in info from augmented outcome DB
+for(names in cols.join) {
+  datSource[[names]] <- ReplaceInfo(names)
+}
+```
+
+
+
+## CHECK INFORMATION FOR REFERENCES MORE THAN 1 STUDY
+A glimpse of combined information for multiple studies references.
+```{r, include = FALSE}
+check.multi.study <- datSource %>%
+  filter(source.number %in% refs.multiple.study) %>%
+  select(source.number,
+         study, 
+         registry.study.id,
+         treatment,
+         control,
+         n.study,
+         n.arm)
+```
+```{r, echo = FALSE}
+view(check.multi.study)
+```
+
+## DATA FINAL CLEANING
+Finally, we clean the data again and write the output to `r text_spec("source_augmented.csv", color =c("#79BAEC"), bold = T)` file.
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=80)}
+#Unify study name format (remove quotation marks)
+datSource$study <- gsub('=|"', "", datSource$study)
+
+datSource <- select(datSource, !ends_with("join"))
+write.csv(datSource, paste(dirResults,'source_augmented.csv',sep = '/'), na = '', row.names = FALSE)
+```
+
+
+## MESSAGES
+Just a second. we still have a few more friendly reminders here. In this section, we can check if there are any more filling needs to be done manually.
+```{r, echo = FALSE}
+ManualFill(miss.in.source)
+MissingURLs(datSource)
+```
+
+The augmentation is complete. Thanks! :)
