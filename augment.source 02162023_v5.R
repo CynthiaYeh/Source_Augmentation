@@ -274,7 +274,7 @@ dim(datUniTrt)
 # Find out the source.number and check in augmented ODB in case of missing datUniTrt
 datUniRef$source.number[!datUniRef$source.number %in% datUniTrt$source.number]
 
-# Join treatment info if ODB contains subarms, strata, and control arm only references
+# Join treatment info if ODB contains subarms, strata, or control arm only references
 tmp <- datUniRef$source.number[datUniRef$source.number %in% datUniTrt$source.number == FALSE]
 tmp.trt <- OutcomesDB %>%
   filter(source.number %in% tmp) %>%
