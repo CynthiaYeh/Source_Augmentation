@@ -3,7 +3,7 @@
 # Script Version : 17 February 2021
 # Database       :
 # Created by     : Cynthia Yeh
-#-------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Last run by  : (name) - Certara Confidential
 # Date run     : 
 # -------------------------------------------------------------------------
@@ -12,7 +12,18 @@
 # Platform : Lenovo ThinkPad T490
 # Environment : Windows 10 Enterprise, Intel(R) Core(TM) i7-10510U CPU @ 1.80 GHz 64-bit OS
 
-
+# Missing source.number
+checkMissingSourceN = function(data) {
+  ind <- which(is.na(data$source.number)|data$source.number == "")
+  
+  if (length(ind) >0){
+    message("There might be missing entries for the database, please check the following row number:")
+    ind+1
+    }
+  else {
+    message("There are no missing entries for source numbers, please proceed the augmentation!")
+    }
+  }
 
 # Generic Checks
 
@@ -93,7 +104,7 @@ searchType <- c("pubmed","clinicaltrials.gov","fda","ema","conference","clinical
 yesNoUnclear<-c("yes","no","unclear")
 yesNo<-c("yes","no")
 reasonType<-c("","indication","design","treatment","comparison","endpoints","population",
-              "sample size","availability","reliability","secondary reference","other", "study duration")
+              "sample size","availability","reliability","secondary reference","other", "study duration", "duplicate")
 
 # Check Database
 
@@ -108,11 +119,22 @@ checkSourceYes = function(data){
 }
 
 checkSourceNo = function(data){
-  if (nrow(data) > 0) {
+  if (length(data) > 0) {
     message("These references are pending or not curated yet")
-    sort(data$source.number)
+    sort(data)
   } else {
     message("Great!!! All included references are curated.")
+  }
+}
+
+# Identify source.number for missing reasons of excluded references
+MissingReasons <- function(data){
+  missing.refs <- unique(data$source.number[data$reason == "" & data$include == "no"])
+  if (length(missing.refs) > 0){
+    message("The excluded references below have missing entries for reasons, please fill them.")
+    sort(missing.refs)
+  } else {
+    message("No missing entries of reasons, please proceed.")
   }
 }
 
@@ -144,14 +166,18 @@ ReplaceInfo = function (x) {
   return(datSource[[x]])
 }
 
+# Keep first inctance of URL
+FirstWord <- function(string){
+  unlist(strsplit(string, ",|;"))[1]
+}
 
 # Warning Messages
 
 ManualFill = function(data){
   if(length(data) > 0) {
     message("Please manually fill back info for following ", paste0(length(miss.in.source)),
-          " references: ",
-          paste(data, collapse = ", "))
+            " references: ",
+            paste(data, collapse = ", "))
   }
 }
 
