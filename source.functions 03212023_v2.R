@@ -100,7 +100,7 @@ checkNumSourceCols = function(data,show.details=T){
 # Named Ranges Checks
 
 searchType <- c("pubmed","clinicaltrials.gov","fda","ema","conference","clinical study report",
-                "company website","cross-reference","web search")
+                "company website","cross-reference","web search", "cochrane")
 yesNoUnclear<-c("yes","no","unclear")
 yesNo<-c("yes","no")
 reasonType<-c("","indication","design","treatment","comparison","endpoints","population",
