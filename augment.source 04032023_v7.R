@@ -368,6 +368,8 @@ datSource <- dplyr::select(datSource, !ends_with("join"))
 # Save as UTF-8 encoding file to avoid special characters in authors
 write.csv(datSource, paste(dirResults,'Source database.csv',sep = '/'), na = "", row.names = FALSE, fileEncoding = "UTF-8")
 
+# Save datSource for consort diagram use
+save(datSource, file = "Augmented Source Database.RData")
 
 ##### Messages #####
 # Find the position for any new information needed manually
