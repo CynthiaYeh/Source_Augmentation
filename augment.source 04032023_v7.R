@@ -52,7 +52,7 @@ OutcomesDB <- read.csv(file = paste(dirSource, augmentdb, sep = "/"), header = T
                        as.is = TRUE, sep = ",", na.strings = c(".","N/A"))
 SourceDB <- read.csv(file = paste(dirSource, sourcedb, sep = "/"), header = TRUE, fill = TRUE,
                      as.is = TRUE, sep = ",", na.strings = c(".","N/A"), strip.white = TRUE, encoding = "UTF-8")
-source('source.functions.R')
+source('source.functions 03212023_v2.R')
 
 # Check missing value in source.number
 checkMissingSourceN(OutcomesDB)

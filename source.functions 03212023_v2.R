@@ -121,7 +121,7 @@ checkSourceYes = function(data){
 checkSourceNo = function(data){
   if (length(data) > 0) {
     message("These references are pending or not curated yet")
-    sort(data)
+    sort(data$source.number)
   } else {
     message("Great!!! All included references are curated.")
   }
